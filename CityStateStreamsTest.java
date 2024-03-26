@@ -9,19 +9,38 @@ public class CityStateStreamsTest {
     // arg2: number of testing rounds
     public static void main(String... args) {
         // Setup
-        Integer numOfStates = args[0] != null ? Integer.valueOf(args[0]) : 100000;
-        Integer numOfCitiesPerState = args[1] != null ? Integer.valueOf(args[1]) : 100;
-        Integer rounds = args[2] != null ? Integer.valueOf(args[2]) : 20;
+        Integer numOfStates = Integer.valueOf(args[0]); // 10000
+        Integer numOfCitiesPerState = Integer.valueOf(args[1]); // 100
+        Integer rounds = Integer.valueOf(args[2]); // 10
+        List<State> states = setup(numOfStates, numOfCitiesPerState);
+        
+        // Run tests
+        List<BigDecimal> results = new ArrayList<BigDecimal>();
+        for(Integer i = 1; i <= rounds; i++) {
+            println("--- Begin round " + i + "\n");
+            BigDecimal result = doTest(states);
+            println("*** *** ***");
+            println("End round " + i + ". Stream was " + result.doubleValue() + "% faster");
+            println("*** *** ***\n");
+            results.add(result);
+        }
+
+        // Results
+        Stream<BigDecimal> bds = results.stream();
+        DoubleStream ds = bds.mapToDouble(bd -> bd.doubleValue());
+        OptionalDouble avg = ds.average();
+        println("Streams averaged " + 
+                new BigDecimal(avg.getAsDouble()).setScale(2, RoundingMode.UP) + "% faster");
+    }
+
+    private static List<State> setup(Integer numOfStates, Integer numOfCitiesPerState) {
         Random rnd = new Random();
         List<State> states = new ArrayList<State>();
 
         List<City> newCities;
         State newState;
-        println("Populating states...");
+        println("\nPopulating states...\n");
         for(Integer i = 0; i < numOfStates; i++) {
-            if(i > 0 && i % 20000 == 0) {
-                println("...");
-            }
             newState = new State(UUID.randomUUID().toString());
             newCities = new ArrayList<City>();
             for(Integer j = 0; j < numOfCitiesPerState; j++) {
@@ -35,25 +54,13 @@ public class CityStateStreamsTest {
             newState.setCities(newCities);
             states.add(newState);
         }
-        
-        List<BigDecimal> results = new ArrayList<BigDecimal>();
-        for(Integer i = 1; i <= rounds; i++) {
-            BigDecimal result = doTest(states);
-            println("Round " + i + ": Stream was " + result.doubleValue() + "% faster");
-            results.add(result);
-        }
-        // Maybe try to stick with big decimal instead of doing this
-        Stream<BigDecimal> bds = results.stream();
-        DoubleStream ds = bds.mapToDouble(bd -> bd.doubleValue());
-        OptionalDouble avg = ds.average();
-
-        println("Streams averaged " + 
-                new BigDecimal(avg.getAsDouble()).setScale(2, RoundingMode.UP) + "% faster");
+        return states;
     }
+
 
     private static BigDecimal doTest(List<State> states) {
         // Iterative
-        println("Start iterative round");
+        println("Start iterative section");
         Long startTime = System.currentTimeMillis();
 
         Integer iterTotal = 0;
@@ -66,10 +73,10 @@ public class CityStateStreamsTest {
         Long endTime = System.currentTimeMillis();
         Long iterTime = endTime - startTime;
         println("Iteration counted " + iterTotal + " cities.");
-        println("End iterative round; took " + iterTime + " ms");
+        println("End iterative section; took " + iterTime + " ms\n");
 
         // Stream based
-        println("Start stream round");
+        println("Start stream section");
         startTime = System.currentTimeMillis();
 
         int streamTotal = 
@@ -78,10 +85,10 @@ public class CityStateStreamsTest {
                 .mapToInt(City::getPopulation)
                 .sum();
 
-        println("Stream API counted " + streamTotal + "cities.");
+        println("Stream API counted " + streamTotal + " cities.");
         endTime = System.currentTimeMillis();
         Long streamTime = endTime - startTime;
-        println("End stream round; took " + streamTime + " ms");
+        println("End stream section; took " + streamTime + " ms\n");
 
         // Comparison
         Long diff = iterTime - streamTime;
